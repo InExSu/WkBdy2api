@@ -1,0 +1,25 @@
+# Loopback-only by default. For LAN exposure put a TLS reverse proxy in front.
+services:
+  wkbdy2api:
+    build: .
+    image: wkbdy2api:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7891:7891"
+    environment:
+      WKB2API_API_KEY: ${WKB2API_API_KEY:?WKB2API_API_KEY is required}
+      HOST: 0.0.0.0
+      PORT: 7891
+      WKB2API_ACCOUNT_STORE_PATH: /app/data/accounts.enc
+      WKB2API_ACCOUNT_STORE_KEY_FILE: /run/secrets/account-store-key
+    volumes:
+      - wkbdy2api-data:/app/data
+    secrets:
+      - account-store-key
+
+volumes:
+  wkbdy2api-data:
+
+secrets:
+  account-store-key:
+    file: ./account-store.key

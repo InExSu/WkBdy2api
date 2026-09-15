@@ -1,0 +1,16 @@
+node_modules
+.git
+.env
+.env.*
+*.log
+logs
+secrets
+*.har
+*.pcap
+fixtures
+tests
+scripts
+Dockerfile
+docker-compose.yml
+.dockerignore
+README.md

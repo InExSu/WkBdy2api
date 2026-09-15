@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.log
+.env
+.env.*
+!.env.example
+*.token
+*.har
+*.pcap
+account-store.key
+data/
+make-public-config.cjs
+wb_v3config_live.json
