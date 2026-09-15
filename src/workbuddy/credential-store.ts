@@ -20,6 +20,7 @@ const snapshotSchema = z.object({
   version: z.literal(1),
   strategy: z.enum(['round-robin', 'random']),
   contextWindow: z.number().int().positive().optional(),
+  contextWindows: z.record(z.number().int().positive()).optional(),
   nextLabel: z.number().int().positive(),
   accounts: z.array(z.object({
     label: z.string().min(1),
@@ -40,6 +41,7 @@ export type CredentialStoreSnapshot = {
   version: 1;
   strategy: PoolStrategy;
   contextWindow?: number;
+  contextWindows?: Record<string, number>;
   nextLabel: number;
   accounts: Array<{ label: string; note?: string; credential: WorkBuddyCredential }>;
 };

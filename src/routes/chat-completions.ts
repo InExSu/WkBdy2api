@@ -98,7 +98,7 @@ export function chatCompletionsRoutes(app: FastifyInstance, opts: ChatOpts): voi
     }
 
     const contextLengths = model.x_workbuddy.context_window?.supportedLengths;
-    const requestedContext = request.context_window ?? opts.pool.contextWindowLength;
+    const requestedContext = request.context_window ?? opts.pool.getContextWindow(request.model);
     const context_window = requestedContext !== undefined && contextLengths?.includes(requestedContext)
       ? requestedContext
       : contextLengths?.length ? Math.max(...contextLengths) : undefined;

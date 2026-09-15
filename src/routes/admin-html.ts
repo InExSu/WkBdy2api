@@ -424,7 +424,64 @@ td .muted { color: var(--text-tertiary); }
   .main { padding: 20px 16px 48px; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+/* Apple Design refresh */
+:root { --bg: #f5f5f7; --bg-raised: rgba(255,255,255,.72); --bg-sidebar: rgba(255,255,255,.64); --bg-elevated: rgba(255,255,255,.9); --chrome-border: rgba(0,0,0,.08); --card-border: rgba(0,0,0,.07); --text: #1d1d1f; --text-primary: #1d1d1f; --text-secondary: #6e6e73; --text-tertiary: #86868b; --accent: #0071e3; --accent-pressed: #0060c9; --ok: #34c759; --warn: #ff9f0a; --error: #ff3b30; --row-hover: rgba(0,0,0,.035); --divider: rgba(0,0,0,.07); --shadow: 0 18px 50px rgba(0,0,0,.07); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#1c1c1e; --bg-raised:rgba(44,44,46,.76); --bg-sidebar:rgba(28,28,30,.8); --bg-elevated:#2c2c2e; --chrome-border:rgba(255,255,255,.1); --card-border:rgba(255,255,255,.1); --text:#f5f5f7; --text-primary:#f5f5f7; --text-secondary:#98989d; --text-tertiary:#8e8e93; --accent:#0a84ff; --accent-pressed:#409cff; --ok:#30d158; --warn:#ff9f0a; --error:#ff453a; --row-hover:rgba(255,255,255,.06); --divider:rgba(255,255,255,.1); --shadow:0 18px 50px rgba(0,0,0,.3); } }
+body { background: radial-gradient(circle at 12% 0%, color-mix(in srgb,var(--accent) 5%,transparent), transparent 34rem), var(--bg); }
+.shell { min-height:100vh; }
+.app-content { min-width:0; flex:1; }
+.app-toolbar { position:sticky; top:0; z-index:5; min-height:72px; padding:16px clamp(20px,4vw,52px); display:flex; align-items:center; justify-content:space-between; gap:20px; background:color-mix(in srgb,var(--bg) 74%,transparent); backdrop-filter:blur(24px) saturate(180%); border-bottom:1px solid var(--divider); }
+.eyebrow,.setting-kicker { color:var(--text-tertiary); font-size:10px; font-weight:750; letter-spacing:.12em; text-transform:uppercase; }
+.toolbar-title { font-size:20px; font-weight:720; letter-spacing:-.025em; line-height:1.1; }
+.toolbar-actions { display:flex; align-items:center; gap:12px; }
+.toolbar-status { display:inline-flex; align-items:center; gap:7px; color:var(--text-secondary); font-size:12px; font-weight:600; }
+.status-dot { width:7px; height:7px; border-radius:50%; background:var(--ok); box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 15%,transparent); }
+.main { padding:36px clamp(20px,4vw,56px) 72px; }
+.section { max-width:1040px; animation:fadeIn 180ms ease-out; }
+.view-header { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:26px; }
+h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; }
+.page-sub { margin:0; max-width:620px; line-height:1.55; }
+.stat-grid { gap:14px; margin-bottom:28px; }
+.stat,.card,.surface-card { border-radius:18px; box-shadow:var(--shadow); }
+.stat { padding:20px; }
+.stat-label { letter-spacing:.03em; }
+.stat-value { font-size:32px; }
+.card-header { padding:18px 20px 12px; }
+.card-title { font-size:16px; }
+.row { padding:14px 20px; min-height:56px; }
+.row-title { font-size:14px; }
+.row-sub { line-height:1.45; }
+.btn { min-height:40px; border-radius:11px; padding:9px 16px; }
+.btn.secondary { background:var(--bg-elevated); }
+.model-list { display:grid; gap:12px; }
+.model-card { display:flex; gap:24px; align-items:center; justify-content:space-between; padding:20px 22px; border:1px solid var(--card-border); border-radius:18px; background:var(--bg-raised); box-shadow:0 8px 24px color-mix(in srgb,var(--text) 5%,transparent); transition:transform 140ms ease-out, border-color 160ms ease, box-shadow 160ms ease; }
+.model-card:hover { transform:translateY(-1px); border-color:color-mix(in srgb,var(--accent) 30%,var(--card-border)); box-shadow:0 14px 32px color-mix(in srgb,var(--text) 9%,transparent); }
+.model-card-main { min-width:0; flex:1; }
+.model-heading { display:flex; align-items:center; gap:12px; justify-content:space-between; }
+.model-name { font-size:16px; font-weight:700; letter-spacing:-.018em; }
+.model-id { margin-top:3px; color:var(--text-tertiary); font:12px ui-monospace,SFMono-Regular,Consolas,monospace; }
+.model-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.model-context { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px; color:var(--text-secondary); font-size:12px; }
+.context-effective { color:var(--text-tertiary); }
+.model-limits { display:flex; gap:20px; padding-left:20px; border-left:1px solid var(--divider); flex-shrink:0; }
+.model-limits div { display:flex; flex-direction:column; gap:3px; align-items:flex-end; }
+.model-limits span { color:var(--text-tertiary); font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+.model-limits strong { font-size:14px; font-variant-numeric:tabular-nums; }
+.price { white-space:nowrap; color:var(--text); font-size:13px; font-weight:700; }
+.price small { color:var(--text-tertiary); font-size:10px; font-weight:600; }
+.context-card { padding:0; margin-bottom:20px; }
+.context-setting { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:22px 24px; }
+.setting-title { margin-top:3px; font-size:17px; font-weight:700; letter-spacing:-.015em; }
+.setting-description { margin-top:5px; color:var(--text-secondary); font-size:12px; line-height:1.5; }
+.setting-control { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.global-context-select { min-width:130px; font-size:13px; padding:10px 32px 10px 13px; border-radius:11px; }
+.save-state { color:var(--text-tertiary); font-size:11px; min-width:54px; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+@media (prefers-reduced-transparency: reduce) { .app-toolbar,.sidebar,.card,.stat,.surface-card,.model-card { backdrop-filter:none; background:var(--bg-elevated); } }
+@media (prefers-contrast: more) { .card,.stat,.surface-card,.model-card,.context-select { border-color:var(--text-secondary); } }
+@media (prefers-reduced-motion: reduce) { .model-card { transition:none; } }
+@media (max-width:720px) { .app-toolbar { padding:14px 16px; min-height:64px; } .toolbar-status { display:none; } .main { padding:24px 16px 56px; } .sidebar { padding:10px 14px; } .nav-item span { display:inline; } .model-card { align-items:flex-start; flex-direction:column; gap:16px; } .model-limits { width:100%; justify-content:space-between; padding:12px 0 0; border-left:0; border-top:1px solid var(--divider); } .model-limits div { align-items:flex-start; } .context-setting { align-items:flex-start; flex-direction:column; gap:16px; } .setting-control { width:100%; } .global-context-select { flex:1; } }
+:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:8px; }
 </style>
 </head>
 <body>
@@ -556,20 +613,20 @@ td .muted { color: var(--text-tertiary); }
       localStorage.setItem(CONTEXT_STORAGE, JSON.stringify(prefs));
     } catch (e) {}
   }
-  function setGlobalContext(value) {
+  function setContextForModel(model, value) {
+    var stateText = $('#context-save-state-' + model);
+    if (stateText) stateText.textContent = '保存中…';
     fetch('/admin/api/context-window', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.key },
       credentials: 'same-origin',
-      body: JSON.stringify({ context_window: value }),
+      body: JSON.stringify({ model_id: model, context_window: value }),
+    }).then(function (res) {
+      if (!res.ok) throw new Error('保存失败');
+      return res.json();
     }).then(function () {
-      if (state.overview && state.overview.pool) state.overview.pool.context_window = value;
-      document.querySelectorAll('.context-select').forEach(function (other) {
-        var model = state.overview.models.find(function (m) { return m.id === other.getAttribute('data-context-model'); });
-        var lengths = model && model.x_workbuddy && model.x_workbuddy.context_window && model.x_workbuddy.context_window.supportedLengths || [];
-        if (lengths.indexOf(value) >= 0) other.value = String(value);
-      });
-    }).catch(function () {});
+      if (stateText) stateText.textContent = '已保存';
+    }).catch(function () { if (stateText) stateText.textContent = '保存失败'; });
   }
 
   function wireContextSelectors() {
@@ -578,7 +635,7 @@ td .muted { color: var(--text-tertiary); }
         var model = select.getAttribute('data-context-model');
         var value = Number(select.value);
         saveContextPreference(model, value);
-        setGlobalContext(value);
+        setContextForModel(model, value);
       });
     });
   }
@@ -652,9 +709,9 @@ td .muted { color: var(--text-tertiary); }
     return '<div class="shell">' +
       '<aside class="sidebar">' +
       '<div class="brand"><span class="brand-dot" id="health-dot"></span><div><h1>Wkbdy2api</h1><small>WorkBuddy → OpenAI 网关</small></div></div>' +
-      '<nav class="nav">' + items + '</nav>' +
+      '<nav class="nav" aria-label="主导航">' + items + '</nav>' +
       '<div class="sidebar-footer">v' + escapeHtml(state.overview ? state.overview.version : '') + ' · 本地运行</div>' +
-      '</aside><main class="main" id="main"></main></div>';
+      '</aside><div class="app-content"><header class="app-toolbar"><div><div class="eyebrow">LOCAL GATEWAY</div><div class="toolbar-title" id="toolbar-title">' + escapeHtml(navLabel(state.view)) + '</div></div><div class="toolbar-actions"><span class="toolbar-status"><span class="status-dot"></span>运行正常</span><button class="btn secondary toolbar-refresh" id="toolbar-refresh" aria-label="刷新当前数据">刷新</button></div></header><main class="main" id="main"></main></div></div>';
   }
 
   function renderMain() {
@@ -706,39 +763,31 @@ td .muted { color: var(--text-tertiary); }
   }
 
   function viewModels(d) {
+    var contextOptions = [];
+    d.models.forEach(function (m) {
+      var lengths = m.x_workbuddy && m.x_workbuddy.context_window && m.x_workbuddy.context_window.supportedLengths || [];
+      lengths.forEach(function (length) { if (Number.isInteger(length) && length > 0 && contextOptions.indexOf(length) < 0) contextOptions.push(length); });
+    });
+    contextOptions.sort(function (a, b) { return a - b; });
+    var globalPicker = '';
     var rows = d.models.map(function (m) {
       var x = m.x_workbuddy || {};
       var tags = [];
       if (x.is_default) tags.push('<span class="pill neutral">默认</span>');
-      if (x.supports_tool_call) tags.push('tool');
-      if (x.supports_images) tags.push('vision');
+      if (x.supports_tool_call) tags.push('<span class="pill neutral">工具</span>');
+      if (x.supports_images) tags.push('<span class="pill neutral">视觉</span>');
+      if (x.supports_reasoning) tags.push('<span class="pill neutral">推理</span>');
       var maxIn = x.max_input_tokens ? (x.max_input_tokens >= 1000000 ? (x.max_input_tokens / 1000000) + 'M' : Math.round(x.max_input_tokens / 1000) + 'K') : '—';
       var maxOut = x.max_output_tokens ? (x.max_output_tokens >= 1000 ? Math.round(x.max_output_tokens / 1000) + 'K' : x.max_output_tokens) : '—';
-      var contextWindow = x.context_window || {};
-      var contextLengths = Array.isArray(contextWindow.supportedLengths)
-        ? contextWindow.supportedLengths.filter(function (length) { return Number.isInteger(length) && length > 0; }).sort(function (a, b) { return a - b; })
-        : [];
-      var selectedContext = contextLengths.indexOf(d.pool && d.pool.context_window) >= 0
-        ? d.pool.context_window
-        : contextWindow.defaultLength;
-      if (contextLengths.indexOf(selectedContext) < 0) selectedContext = contextLengths[contextLengths.length - 1];
-      var contextTiers = contextLengths.length > 1
-        ? '<label class="context-picker">上下文<select class="context-select" data-context-model="' + escapeHtml(m.id) + '">'
-          + contextLengths.map(function (length) {
-            var selected = length === selectedContext ? ' selected' : '';
-            return '<option value="' + length + '"' + selected + '>' + fmtContextLength(length) + (length === contextWindow.defaultLength ? '（默认）' : '') + '</option>';
-          }).join('') + '</select></label>'
-        : '';
-      var price = x.credits ? '<span class="pill ' + (x.credits === 'x0.00' ? 'ok' : 'neutral') + '">Credits ' + escapeHtml(x.credits) + '</span>' : '<span class="pill neutral">Credits 未提供</span>';
-      return '<div class="row">' +
-        '<div class="row-main"><div class="row-title" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">' + escapeHtml(m.id) + '</div>' +
-        '<div class="row-sub">' + escapeHtml(x.name || '') + (tags.length ? ' · ' + tags.join(' · ') : '') + '</div>' + contextTiers + '</div>' +
-        '<div class="row-value">入 ' + maxIn + ' / 出 ' + maxOut + '</div>' +
-        price + '</div>';
+      var cw = x.context_window || {};
+      var lengths = Array.isArray(cw.supportedLengths) ? cw.supportedLengths.filter(function (length) { return Number.isInteger(length) && length > 0; }).sort(function (a, b) { return a - b; }) : [];
+      var selectedContext = lengths.indexOf(d.pool && d.pool.context_window && d.pool.context_window[m.id]) >= 0 ? d.pool.context_window[m.id] : cw.defaultLength;
+      if (lengths.indexOf(selectedContext) < 0 && lengths.length) selectedContext = lengths[lengths.length - 1];
+      var context = lengths.length > 1 ? '<div class="model-context"><span>支持 ' + lengths.map(fmtContextLength).join(' / ') + '</span><label class="context-picker">上下文<select class="context-select" data-context-model="' + escapeHtml(m.id) + '">' + lengths.map(function (length) { return '<option value="' + length + '"' + (length === selectedContext ? ' selected' : '') + '>' + fmtContextLength(length) + '</option>'; }).join('') + '</select><span class="save-state" id="context-save-state-' + escapeHtml(m.id) + '" aria-live="polite"></span></label></div>' : '';
+      var credits = x.credits ? '<span class="price">' + escapeHtml(x.credits) + ' <small>Credits</small></span>' : '<span class="price muted">未提供价格</span>';
+      return '<article class="model-card"><div class="model-card-main"><div class="model-heading"><div class="model-name">' + escapeHtml(x.name || m.id) + '</div>' + credits + '</div><div class="model-id">' + escapeHtml(m.id) + '</div><div class="model-tags">' + tags.join('') + '</div>' + context + '</div><div class="model-limits"><div><span>输入</span><strong>' + maxIn + '</strong></div><div><span>输出</span><strong>' + maxOut + '</strong></div></div></article>';
     }).join('');
-    return '<section class="section"><h2>模型</h2>' +
-      '<p class="page-sub">' + d.models.length + ' 个可用模型，由 CLI agent 白名单与配置交集生成。</p>' +
-      '<div class="card"><div class="rows">' + rows + '</div></div></section>';
+    return '<section class="section"><div class="view-header"><div><div class="eyebrow">MODEL CATALOG</div><h2>模型</h2><p class="page-sub">' + d.models.length + ' 个模型 · 每个模型的上下文设置会应用到账号池中的所有账号。</p></div></div><div class="model-list">' + rows + '</div></section>';
   }
 
   function viewRequestsShell() {
@@ -827,6 +876,8 @@ td .muted { color: var(--text-tertiary); }
     document.querySelectorAll('.nav-item').forEach(function (btn) {
       btn.addEventListener('click', function () {
         state.view = btn.getAttribute('data-view');
+        var title = $('#toolbar-title');
+        if (title) title.textContent = navLabel(state.view);
         document.querySelectorAll('.nav-item').forEach(function (b) {
           b.setAttribute('aria-current', b === btn ? 'true' : 'false');
         });
@@ -835,6 +886,8 @@ td .muted { color: var(--text-tertiary); }
     });
     var rf = $('#refresh-now');
     if (rf) rf.addEventListener('click', function () { refreshOverview().catch(function () {}); });
+    var tr = $('#toolbar-refresh');
+    if (tr) tr.addEventListener('click', function () { refreshOverview().catch(function () {}); });
   }
 
   function patchAccountPool(d) {

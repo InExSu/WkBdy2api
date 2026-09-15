@@ -60,7 +60,7 @@ export function messagesRoutes(app: FastifyInstance, opts: MessagesOptions): voi
       return fail(400, 'This model does not support images.');
     }
     const contextLengths = entry.x_workbuddy.context_window?.supportedLengths;
-    const requestedContext = request.context_window ?? opts.pool.contextWindowLength;
+    const requestedContext = request.context_window ?? opts.pool.getContextWindow(model!);
     const context_window = requestedContext !== undefined && contextLengths?.includes(requestedContext)
       ? requestedContext
       : contextLengths?.length ? Math.max(...contextLengths) : undefined;

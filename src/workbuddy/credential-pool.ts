@@ -19,6 +19,7 @@ export class CredentialPool {
   private refresher?: Refresher;
   strategy: PoolStrategy;
   private contextWindow?: number;
+  private contextWindows = new Map<string, number>();
   private readonly cooldownMs: number;
   private readonly store?: CredentialStore;
 
@@ -31,6 +32,7 @@ export class CredentialPool {
   restore(snapshot: CredentialStoreSnapshot): void {
     this.strategy = snapshot.strategy;
     this.contextWindow = snapshot.contextWindow;
+    this.contextWindows = new Map(Object.entries(snapshot.contextWindows ?? {}));
     this.nextLabel = snapshot.nextLabel;
     this.cursor = 0;
     this.states = snapshot.accounts.map((account) => ({
@@ -54,6 +56,7 @@ export class CredentialPool {
       version: 1,
       strategy: this.strategy,
       ...(this.contextWindow !== undefined ? { contextWindow: this.contextWindow } : {}),
+      ...(this.contextWindows.size ? { contextWindows: Object.fromEntries(this.contextWindows) } : {}),
       nextLabel: this.nextLabel,
       accounts: this.states.map(({ account }) => ({
         label: account.label,
@@ -68,11 +71,18 @@ export class CredentialPool {
   }
 
   get contextWindowLength(): number | undefined { return this.contextWindow; }
+  get contextWindowSettings(): Record<string, number> { return Object.fromEntries(this.contextWindows); }
+  getContextWindow(modelId: string): number | undefined { return this.contextWindows.get(modelId) ?? this.contextWindow; }
 
-  async setContextWindow(length: number | undefined): Promise<void> {
-    const previous = this.contextWindow;
-    this.contextWindow = length;
-    try { await this.persist(); } catch (error) { this.contextWindow = previous; throw error; }
+  async setContextWindow(modelId: string, length: number | undefined): Promise<void> {
+    const previous = this.contextWindows.get(modelId);
+    if (length === undefined) this.contextWindows.delete(modelId);
+    else this.contextWindows.set(modelId, length);
+    try { await this.persist(); } catch (error) {
+      if (previous === undefined) this.contextWindows.delete(modelId);
+      else this.contextWindows.set(modelId, previous);
+      throw error;
+    }
   }
 
   async add(credential: WorkBuddyCredential, note?: string): Promise<PoolAccount> {

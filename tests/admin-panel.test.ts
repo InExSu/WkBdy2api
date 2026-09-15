@@ -63,7 +63,7 @@ describe('embedded OAuth panel interactions', () => {
     expect(selector).not.toBeNull();
     expect(selector.options.length).toBe(2);
     expect(selector.value).toBe('300000');
-    expect(w.document.querySelector('.pill')?.textContent).toContain('Credits x0.00');
+    expect(w.document.body.textContent).toContain('x0.00 Credits');
   });
   it('offers a safe explicit link if the browser blocks the new tab', async () => {
     const { w } = await panel(true);
