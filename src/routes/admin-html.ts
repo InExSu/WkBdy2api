@@ -229,6 +229,12 @@ h2 {
 .row-title { font-size: 13px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-value { font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.context-picker { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; font-size: 11px; font-weight: 600; letter-spacing: .01em; color: var(--text-tertiary); }
+.context-select { appearance: none; border: 1px solid var(--card-border); border-radius: 8px; background: var(--bg-raised); color: var(--text-primary); padding: 6px 28px 6px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: transform 120ms ease-out, border-color 160ms ease, background 160ms ease; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 13px) 10px, calc(100% - 9px) 10px; background-size: 4px 4px, 4px 4px; background-repeat: no-repeat; }
+.context-select:hover { border-color: var(--accent); background-color: var(--row-hover); }
+.context-select:active { transform: scale(.97); }
+.context-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .context-select { transition: none; } }
 
 /* ---- pills / badges ---- */
 .pill {
@@ -550,18 +556,29 @@ td .muted { color: var(--text-tertiary); }
       localStorage.setItem(CONTEXT_STORAGE, JSON.stringify(prefs));
     } catch (e) {}
   }
+  function setGlobalContext(value) {
+    fetch('/admin/api/context-window', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.key },
+      credentials: 'same-origin',
+      body: JSON.stringify({ context_window: value }),
+    }).then(function () {
+      if (state.overview && state.overview.pool) state.overview.pool.context_window = value;
+      document.querySelectorAll('.context-select').forEach(function (other) {
+        var model = state.overview.models.find(function (m) { return m.id === other.getAttribute('data-context-model'); });
+        var lengths = model && model.x_workbuddy && model.x_workbuddy.context_window && model.x_workbuddy.context_window.supportedLengths || [];
+        if (lengths.indexOf(value) >= 0) other.value = String(value);
+      });
+    }).catch(function () {});
+  }
+
   function wireContextSelectors() {
     document.querySelectorAll('.context-select').forEach(function (select) {
       select.addEventListener('change', function () {
         var model = select.getAttribute('data-context-model');
         var value = Number(select.value);
         saveContextPreference(model, value);
-        fetch('/admin/api/context-window', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.key },
-          credentials: 'same-origin',
-          body: JSON.stringify({ context_window: value }),
-        }).catch(function () {});
+        setGlobalContext(value);
       });
     });
   }

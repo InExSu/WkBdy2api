@@ -1,4 +1,4 @@
-import { Window, type HTMLInputElement, type HTMLButtonElement } from 'happy-dom';
+import { Window, type HTMLInputElement, type HTMLButtonElement, type HTMLSelectElement } from 'happy-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { adminPanelHtml } from '../src/routes/admin-html.js';
 
@@ -7,7 +7,7 @@ afterEach(async () => { await Promise.all(windows.splice(0).map((w) => w.happyDO
 const overview = {
   version: 'test', credential: { ok: false, source: 'not configured', detail: '' },
   upstream: { url: 'https://www.workbuddy.ai/v2/chat/completions', user_agent: 'WorkBuddy/2.137.1' },
-  models: [], pool: { size: 0, strategy: 'round-robin', accounts: [] },
+  models: [{ id: 'deepseek-v4.1-flash', x_workbuddy: { name: 'Deepseek', credits: 'x0.00', context_window: { defaultLength: 300000, supportedLengths: [300000, 1000000] } } }], pool: { size: 0, strategy: 'round-robin', context_window: null, accounts: [] },
   stats: { uptime_ms: 0, total_requests: 0, total_errors: 0, error_rate: 0, p95_ms: null, per_model: [], tokens: { prompt: 0, completion: 0 } },
 };
 
@@ -56,6 +56,15 @@ describe('embedded OAuth panel interactions', () => {
     expect(fetchFn.mock.calls.filter(([p]) => p.endsWith('/oauth/start'))).toHaveLength(1);
   });
 
+  it('renders Credits price and selectable global context tiers', async () => {
+    const { w } = await panel();
+    (w.document.querySelector('[data-view="models"]') as unknown as HTMLButtonElement).click();
+    const selector = w.document.querySelector('.context-select') as unknown as HTMLSelectElement;
+    expect(selector).not.toBeNull();
+    expect(selector.options.length).toBe(2);
+    expect(selector.value).toBe('300000');
+    expect(w.document.querySelector('.pill')?.textContent).toContain('Credits x0.00');
+  });
   it('offers a safe explicit link if the browser blocks the new tab', async () => {
     const { w } = await panel(true);
     (w.document.querySelector('#oauth-start') as unknown as HTMLButtonElement).click();
@@ -63,4 +72,5 @@ describe('embedded OAuth panel interactions', () => {
     expect(w.document.querySelector('#oauth-link')?.getAttribute('rel')).toBe('noopener noreferrer');
     expect(w.document.querySelector('#oauth-status')?.textContent).toContain('下方链接');
   });
+
 });
