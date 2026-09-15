@@ -4,6 +4,7 @@ import { WorkBuddyClient, UpstreamHttpError, UpstreamProtocolError } from '../wo
 import { CompletionAggregator, toOpenAiChunk, localCompletionId } from '../openai/response-builder.js';
 import { openAiError, type ApiErrorCode } from '../openai/errors.js';
 import type { ExposedModel } from '../workbuddy/model-catalog.js';
+import type { CredentialPool } from '../workbuddy/credential-pool.js';
 import type { MetricsCollector } from '../observability/metrics.js';
 
 /** Fields that would silently change semantics if dropped; reject instead. */
@@ -31,6 +32,7 @@ const REJECTED_UNSUPPORTED = new Set([
 interface ChatOpts {
   models: ExposedModel[];
   client: WorkBuddyClient;
+  pool: CredentialPool;
   metrics: MetricsCollector;
 }
 
@@ -95,7 +97,12 @@ export function chatCompletionsRoutes(app: FastifyInstance, opts: ChatOpts): voi
       return reply.code(err.statusCode).send(err.body);
     }
 
-    const upstreamBody = toUpstreamRequest(request);
+    const contextLengths = model.x_workbuddy.context_window?.supportedLengths;
+    const requestedContext = request.context_window ?? opts.pool.contextWindowLength;
+    const context_window = requestedContext !== undefined && contextLengths?.includes(requestedContext)
+      ? requestedContext
+      : contextLengths?.length ? Math.max(...contextLengths) : undefined;
+    const upstreamBody = toUpstreamRequest({ ...request, context_window });
     const abort = new AbortController();
     // Node fires 'close' on the request stream once the body is consumed —
     // before the response is sent. Watch the response stream instead: it

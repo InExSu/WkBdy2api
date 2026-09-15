@@ -91,6 +91,7 @@ export const messagesSchema = z.object({
   // Accept Claude and common object-form thinking controls and map them to WorkBuddy's top-level reasoning_effort.
   thinking: thinkingSchema.optional(),
   output_config: z.object({ effort: reasoningEffortSchema.optional() }).strict().optional(),
+  context_window: z.number().int().positive().optional(),
   stop_sequences: z.array(z.string()).max(0, 'stop_sequences is not supported by this adapter').optional(),
 }).strict();
 export type MessagesRequest = z.infer<typeof messagesSchema>;
@@ -150,6 +151,7 @@ export function toWorkBuddyMessageRequest(request: MessagesRequest, model: strin
     model, messages, stream: true, max_tokens: request.max_tokens,
     ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
     ...(request.top_p !== undefined ? { top_p: request.top_p } : {}),
+    ...(request.context_window !== undefined ? { context_window: request.context_window } : {}),
     ...(request.tools ? { tools: request.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } })) } : {}),
     ...(request.tool_choice ? { tool_choice: request.tool_choice.type === 'tool' ? { type: 'function', function: { name: request.tool_choice.name } } : request.tool_choice.type === 'any' ? 'required' : request.tool_choice.type } : {}),
     ...(request.tool_choice && 'disable_parallel_tool_use' in request.tool_choice && request.tool_choice.disable_parallel_tool_use !== undefined ? { parallel_tool_calls: !request.tool_choice.disable_parallel_tool_use } : {}),

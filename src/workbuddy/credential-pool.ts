@@ -18,6 +18,7 @@ export class CredentialPool {
   private nextLabel = 1;
   private refresher?: Refresher;
   strategy: PoolStrategy;
+  private contextWindow?: number;
   private readonly cooldownMs: number;
   private readonly store?: CredentialStore;
 
@@ -29,6 +30,7 @@ export class CredentialPool {
 
   restore(snapshot: CredentialStoreSnapshot): void {
     this.strategy = snapshot.strategy;
+    this.contextWindow = snapshot.contextWindow;
     this.nextLabel = snapshot.nextLabel;
     this.cursor = 0;
     this.states = snapshot.accounts.map((account) => ({
@@ -51,6 +53,7 @@ export class CredentialPool {
     return {
       version: 1,
       strategy: this.strategy,
+      ...(this.contextWindow !== undefined ? { contextWindow: this.contextWindow } : {}),
       nextLabel: this.nextLabel,
       accounts: this.states.map(({ account }) => ({
         label: account.label,
@@ -62,6 +65,14 @@ export class CredentialPool {
 
   private async persist(): Promise<void> {
     if (this.store) await this.store.save(this.snapshot());
+  }
+
+  get contextWindowLength(): number | undefined { return this.contextWindow; }
+
+  async setContextWindow(length: number | undefined): Promise<void> {
+    const previous = this.contextWindow;
+    this.contextWindow = length;
+    try { await this.persist(); } catch (error) { this.contextWindow = previous; throw error; }
   }
 
   async add(credential: WorkBuddyCredential, note?: string): Promise<PoolAccount> {

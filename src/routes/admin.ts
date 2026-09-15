@@ -90,6 +90,7 @@ export function adminRoutes(app: FastifyInstance, opts: AdminOpts): void {
       pool: {
         size: opts.pool.size,
         strategy: opts.pool.strategyName,
+        context_window: opts.pool.contextWindowLength ?? null,
         accounts: opts.pool.list(),
       },
       upstream: { url: opts.upstreamUrl, user_agent: opts.upstreamUa },
@@ -179,6 +180,18 @@ export function adminRoutes(app: FastifyInstance, opts: AdminOpts): void {
     }
     const removed = await opts.pool.remove(parsed.data.label);
     return reply.code(removed ? 200 : 404).send({ ok: removed, pool_size: opts.pool.size });
+  });
+
+  const contextSchema = z.object({ context_window: z.number().int().positive().nullable() });
+  app.get('/admin/api/context-window', async () => ({ context_window: opts.pool.contextWindowLength ?? null }));
+  app.post('/admin/api/context-window', async (req, reply) => {
+    const parsed = contextSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const err = openAiError(400, 'invalid_request', 'context_window must be a positive integer or null.');
+      return reply.code(err.statusCode).send(err.body);
+    }
+    await opts.pool.setContextWindow(parsed.data.context_window ?? undefined);
+    return reply.code(200).send({ ok: true, context_window: opts.pool.contextWindowLength ?? null });
   });
 
   const strategySchema = z.object({ strategy: z.enum(['round-robin', 'random']) });

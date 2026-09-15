@@ -73,10 +73,11 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
     prefix: '/v1',
     models: opts.models,
     client: opts.client,
+    pool: opts.pool,
     metrics: opts.metrics,
   });
-  void app.register(messagesRoutes, { prefix: '/v1', models: opts.models, client: opts.client, metrics: opts.metrics, modelAliases: opts.modelAliases });
-  void app.register(responsesRoutes, { prefix: '/v1', models: opts.models, client: opts.client, metrics: opts.metrics });
+  void app.register(messagesRoutes, { prefix: '/v1', models: opts.models, client: opts.client, pool: opts.pool, metrics: opts.metrics, modelAliases: opts.modelAliases });
+  void app.register(responsesRoutes, { prefix: '/v1', models: opts.models, client: opts.client, pool: opts.pool, metrics: opts.metrics });
 
   const oauth = new OAuthBroker({
     ...opts.oauthOptions,

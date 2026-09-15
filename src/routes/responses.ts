@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { responsesRequestSchema, ResponsesInputError, toWorkBuddyResponseRequest } from '../openai/responses-request-mapper.js';
+import { responsesRequestSchema, ResponsesInputError, toWorkBuddyResponseRequest, type ResponsesRequest } from '../openai/responses-request-mapper.js';
 import { normalizeOpenAiRequestBody } from '../workbuddy/request-mapper.js';
 import { ResponsesBuilder } from '../openai/responses-builder.js';
 import { openAiError } from '../openai/errors.js';
@@ -7,10 +7,12 @@ import { mapUpstreamError } from './chat-completions.js';
 import type { ExposedModel } from '../workbuddy/model-catalog.js';
 import type { WorkBuddyClient, UpstreamChunk } from '../workbuddy/client.js';
 import type { MetricsCollector } from '../observability/metrics.js';
+import type { CredentialPool } from '../workbuddy/credential-pool.js';
 
 type ResponsesOptions = {
   models: ExposedModel[];
   client: WorkBuddyClient;
+  pool: CredentialPool;
   metrics: MetricsCollector;
 };
 
@@ -75,9 +77,15 @@ export function responsesRoutes(app: FastifyInstance, opts: ResponsesOptions): v
       return reply.code(400).send(error.body);
     }
 
+    const contextLengths = model.x_workbuddy.context_window?.supportedLengths;
+    const requestedContext = (request as ResponsesRequest & { context_window?: number }).context_window ?? opts.pool.contextWindowLength;
+    const context_window = requestedContext !== undefined && contextLengths?.includes(requestedContext)
+      ? requestedContext
+      : contextLengths?.length ? Math.max(...contextLengths) : undefined;
+    const effectiveRequest = { ...request, context_window };
     let upstream;
     try {
-      upstream = toWorkBuddyResponseRequest(request);
+      upstream = toWorkBuddyResponseRequest(effectiveRequest);
     } catch (error) {
       const message = error instanceof ResponsesInputError ? error.message : 'Invalid Responses request.';
       const mapped = openAiError(400, 'invalid_request', message);

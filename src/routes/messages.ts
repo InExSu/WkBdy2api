@@ -6,10 +6,12 @@ import { anthropicError, mapMessagesError } from '../anthropic/errors.js';
 import { UpstreamProtocolError, type WorkBuddyClient, type StreamResult } from '../workbuddy/client.js';
 import type { ExposedModel } from '../workbuddy/model-catalog.js';
 import type { MetricsCollector } from '../observability/metrics.js';
+import type { CredentialPool } from '../workbuddy/credential-pool.js';
 
 type MessagesOptions = {
   models: ExposedModel[];
   client: WorkBuddyClient;
+  pool: CredentialPool;
   metrics: MetricsCollector;
   modelAliases?: Record<string, string>;
 };
@@ -57,8 +59,14 @@ export function messagesRoutes(app: FastifyInstance, opts: MessagesOptions): voi
     if (entry.x_workbuddy.supports_images === false && request.messages.some((m) => Array.isArray(m.content) && m.content.some((b) => b.type === 'image'))) {
       return fail(400, 'This model does not support images.');
     }
+    const contextLengths = entry.x_workbuddy.context_window?.supportedLengths;
+    const requestedContext = request.context_window ?? opts.pool.contextWindowLength;
+    const context_window = requestedContext !== undefined && contextLengths?.includes(requestedContext)
+      ? requestedContext
+      : contextLengths?.length ? Math.max(...contextLengths) : undefined;
+    const effectiveRequest = { ...request, context_window };
     let upstream;
-    try { upstream = toWorkBuddyMessageRequest(request, entry.id); }
+    try { upstream = toWorkBuddyMessageRequest(effectiveRequest, entry.id); }
     catch (err) {
       if (err instanceof MessagesInputError) return fail(400, err.message);
       return fail(400, 'Invalid Messages request.');

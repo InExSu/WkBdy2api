@@ -430,6 +430,7 @@ td .muted { color: var(--text-tertiary); }
   'use strict';
 
   var KEY_STORAGE = 'wkb2api-admin-key';
+  var CONTEXT_STORAGE = 'wkb2api-model-context';
   var state = {
     key: null,
     overview: null,
@@ -536,6 +537,35 @@ td .muted { color: var(--text-tertiary); }
   function fmtInt(n) { return (n || 0).toLocaleString(); }
   function fmtPct(x) { return (x * 100).toFixed(1) + '%'; }
   function fmtMs(n) { return n == null ? '—' : (n >= 1000 ? (n / 1000).toFixed(1) + ' s' : Math.round(n) + ' ms'); }
+  function fmtContextLength(n) {
+    return n >= 1000000 ? (n / 1000000).toFixed(n % 1000000 ? 1 : 0) + 'M' : Math.round(n / 1000) + 'K';
+  }
+  function getContextPreferences() {
+    try { return JSON.parse(localStorage.getItem(CONTEXT_STORAGE) || '{}'); } catch (e) { return {}; }
+  }
+  function saveContextPreference(model, value) {
+    try {
+      var prefs = getContextPreferences();
+      prefs[model] = value;
+      localStorage.setItem(CONTEXT_STORAGE, JSON.stringify(prefs));
+    } catch (e) {}
+  }
+  function wireContextSelectors() {
+    document.querySelectorAll('.context-select').forEach(function (select) {
+      select.addEventListener('change', function () {
+        var model = select.getAttribute('data-context-model');
+        var value = Number(select.value);
+        saveContextPreference(model, value);
+        fetch('/admin/api/context-window', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.key },
+          credentials: 'same-origin',
+          body: JSON.stringify({ context_window: value }),
+        }).catch(function () {});
+      });
+    });
+  }
+
   function fmtUptime(ms) {
     var s = Math.floor(ms / 1000);
     var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
@@ -618,7 +648,7 @@ td .muted { color: var(--text-tertiary); }
     if (dot) dot.classList.toggle('down', d.credential.ok === false && !(d.pool && d.pool.accounts.some(function (a) { return a.ok; })));
 
     if (state.view === 'overview') main.innerHTML = viewOverview(d);
-    else if (state.view === 'models') main.innerHTML = viewModels(d);
+    else if (state.view === 'models') { main.innerHTML = viewModels(d); wireContextSelectors(); }
     else if (state.view === 'requests') { main.innerHTML = viewRequestsShell(); loadRequests(); }
     else if (state.view === 'upstream') {
       main.innerHTML = viewUpstream(d);
@@ -667,11 +697,27 @@ td .muted { color: var(--text-tertiary); }
       if (x.supports_images) tags.push('vision');
       var maxIn = x.max_input_tokens ? (x.max_input_tokens >= 1000000 ? (x.max_input_tokens / 1000000) + 'M' : Math.round(x.max_input_tokens / 1000) + 'K') : '—';
       var maxOut = x.max_output_tokens ? (x.max_output_tokens >= 1000 ? Math.round(x.max_output_tokens / 1000) + 'K' : x.max_output_tokens) : '—';
+      var contextWindow = x.context_window || {};
+      var contextLengths = Array.isArray(contextWindow.supportedLengths)
+        ? contextWindow.supportedLengths.filter(function (length) { return Number.isInteger(length) && length > 0; }).sort(function (a, b) { return a - b; })
+        : [];
+      var selectedContext = contextLengths.indexOf(d.pool && d.pool.context_window) >= 0
+        ? d.pool.context_window
+        : contextWindow.defaultLength;
+      if (contextLengths.indexOf(selectedContext) < 0) selectedContext = contextLengths[contextLengths.length - 1];
+      var contextTiers = contextLengths.length > 1
+        ? '<label class="context-picker">上下文<select class="context-select" data-context-model="' + escapeHtml(m.id) + '">'
+          + contextLengths.map(function (length) {
+            var selected = length === selectedContext ? ' selected' : '';
+            return '<option value="' + length + '"' + selected + '>' + fmtContextLength(length) + (length === contextWindow.defaultLength ? '（默认）' : '') + '</option>';
+          }).join('') + '</select></label>'
+        : '';
+      var price = x.credits ? '<span class="pill ' + (x.credits === 'x0.00' ? 'ok' : 'neutral') + '">Credits ' + escapeHtml(x.credits) + '</span>' : '<span class="pill neutral">Credits 未提供</span>';
       return '<div class="row">' +
         '<div class="row-main"><div class="row-title" style="font-family:ui-monospace,Consolas,monospace;font-size:12px">' + escapeHtml(m.id) + '</div>' +
-        '<div class="row-sub">' + escapeHtml(x.name || '') + (tags.length ? ' · ' + tags.join(' · ') : '') + '</div></div>' +
+        '<div class="row-sub">' + escapeHtml(x.name || '') + (tags.length ? ' · ' + tags.join(' · ') : '') + '</div>' + contextTiers + '</div>' +
         '<div class="row-value">入 ' + maxIn + ' / 出 ' + maxOut + '</div>' +
-        '<span class="pill ' + (x.credits === 'x0.00' ? 'ok' : 'neutral') + '">' + escapeHtml(x.credits || '') + '</span></div>';
+        price + '</div>';
     }).join('');
     return '<section class="section"><h2>模型</h2>' +
       '<p class="page-sub">' + d.models.length + ' 个可用模型，由 CLI agent 白名单与配置交集生成。</p>' +

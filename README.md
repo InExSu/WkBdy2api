@@ -64,6 +64,4 @@ Anthropic-compatible `thinking` settings are converted to `reasoning_effort` as 
 - image and tool-call support
 - maximum input and output token limits
 
-## Security
-
-The service is intended for local loopback use. Configure downstream authentication and credential storage before exposing it to clients. Do not publish the service directly to an untrusted network.
+模型列表会显示 WorkBuddy 提供的 Credits 价格。管理面板中带有多个 `contextWindow.supportedLengths` 的模型会显示上下文选择器；选择是账号池级别的全局设置，保存后所有账号请求统一使用该档位。某个模型不支持当前全局档位时，该模型请求自动使用它自身支持的最大档位。

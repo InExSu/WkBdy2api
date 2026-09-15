@@ -67,6 +67,7 @@ export const responsesRequestSchema = z.object({
     effort: z.enum(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']),
   }).strict().optional(),
   thinking: thinkingSchema.optional(),
+  context_window: z.number().int().positive().optional(),
   store: z.boolean().optional(),
 }).strict();
 
@@ -130,6 +131,7 @@ export function toWorkBuddyResponseRequest(request: ResponsesRequest): UpstreamC
     model: request.model,
     messages,
     stream: true,
+    ...(request.context_window !== undefined ? { context_window: request.context_window } : {}),
     ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
     ...(request.top_p !== undefined ? { top_p: request.top_p } : {}),
     ...(request.max_output_tokens !== undefined ? { max_tokens: request.max_output_tokens } : {}),

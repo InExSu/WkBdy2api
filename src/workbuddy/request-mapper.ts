@@ -92,6 +92,7 @@ export const chatRequestSchema = z
     // Both OpenAI-style strings and common object forms map to WorkBuddy's top-level reasoning_effort.
     reasoning_effort: reasoningEffortSchema.optional(),
     thinking: thinkingSchema.optional(),
+    context_window: z.number().int().positive().optional(),
     user: z.string().optional(),
     stream_options: z.object({ include_usage: z.boolean().optional() }).optional(),
   })
@@ -119,6 +120,7 @@ export type UpstreamChatRequest = {
   tool_choice?: unknown;
   parallel_tool_calls?: boolean;
   reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  context_window?: number;
 };
 
 export function toUpstreamRequest(req: ChatRequest): UpstreamChatRequest {
@@ -137,6 +139,7 @@ export function toUpstreamRequest(req: ChatRequest): UpstreamChatRequest {
   if (req.parallel_tool_calls !== undefined) out.parallel_tool_calls = req.parallel_tool_calls;
   if (req.thinking !== undefined) out.reasoning_effort = mapThinkingToReasoningEffort(req.thinking, req.reasoning_effort);
   else if (req.reasoning_effort !== undefined) out.reasoning_effort = req.reasoning_effort;
+  if (req.context_window !== undefined) out.context_window = req.context_window;
   return out;
 }
 
