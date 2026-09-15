@@ -11,9 +11,7 @@ const envSchema = z.object({
   WKB2API_UPSTREAM_URL: z.string().url().default('https://www.workbuddy.ai/v2/chat/completions'),
   /** Upstream User-Agent. Upstream enforces single-segment 'name/version'. */
   WKB2API_UPSTREAM_UA: z.string().default('WorkBuddy/2.137.1'),
-  /** Timeouts (ms). */
-  WKB2API_FIRST_BYTE_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
-  WKB2API_IDLE_TIMEOUT_MS: z.coerce.number().int().positive().default(300_000),
+  /** Upstream streaming has no gateway timeout; client disconnect still cancels it. */
   /** Encrypted OAuth account store and its independent 32-byte key file. */
   WKB2API_ACCOUNT_STORE_PATH: z.string().default('data/accounts.enc'),
   WKB2API_ACCOUNT_STORE_KEY_FILE: z.string().min(1),
@@ -37,8 +35,6 @@ export type AppConfig = {
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug';
   upstreamUrl: string;
   upstreamUa: string;
-  firstByteTimeoutMs: number;
-  idleTimeoutMs: number;
   accountStorePath: string;
   accountStoreKeyFile: string;
   credentialsPath: string;
@@ -60,8 +56,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     logLevel: parsed.data.LOG_LEVEL,
     upstreamUrl: parsed.data.WKB2API_UPSTREAM_URL,
     upstreamUa: parsed.data.WKB2API_UPSTREAM_UA,
-    firstByteTimeoutMs: parsed.data.WKB2API_FIRST_BYTE_TIMEOUT_MS,
-    idleTimeoutMs: parsed.data.WKB2API_IDLE_TIMEOUT_MS,
     accountStorePath: parsed.data.WKB2API_ACCOUNT_STORE_PATH,
     accountStoreKeyFile: parsed.data.WKB2API_ACCOUNT_STORE_KEY_FILE,
     credentialsPath: parsed.data.WKB2API_CREDENTIALS_PATH ?? 'workbuddy-desktop-ai.info',

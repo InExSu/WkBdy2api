@@ -34,10 +34,6 @@ export type ClientOptions = {
   upstreamUrl: string;
   credentials: CredentialLike;
   userAgent: string;
-  /** Connect+first-byte budget for the upstream request. */
-  firstByteTimeoutMs?: number;
-  /** Max silence between SSE frames. */
-  idleTimeoutMs?: number;
   fetchFn?: typeof fetch;
 };
 
@@ -74,15 +70,11 @@ export class UpstreamProtocolError extends Error {
   }
 }
 
-/** Thin transport over the WorkBuddy chat endpoint. Handles auth headers, timeouts and 401 retry. */
-export class WorkBuddyClient {
-  private readonly firstByteTimeoutMs: number;
-  private readonly idleTimeoutMs: number;
+  /** Thin transport over the WorkBuddy chat endpoint. Client disconnects still cancel the upstream stream. */
+  export class WorkBuddyClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(private readonly opts: ClientOptions) {
-    this.firstByteTimeoutMs = opts.firstByteTimeoutMs ?? 60_000;
-    this.idleTimeoutMs = opts.idleTimeoutMs ?? 300_000;
     this.fetchFn = opts.fetchFn ?? fetch;
   }
 
@@ -155,7 +147,6 @@ export class WorkBuddyClient {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.firstByteTimeoutMs),
     });
     // Consume/discard whatever came back so the socket is released.
     await res.body?.cancel().catch(() => {});
@@ -179,12 +170,11 @@ export class WorkBuddyClient {
       'X-Product': 'SaaS',
       'User-Agent': this.opts.userAgent,
     };
-    const connect = AbortSignal.any([signal, AbortSignal.timeout(this.firstByteTimeoutMs)]);
     return this.fetchFn(this.opts.upstreamUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
-      signal: connect,
+      signal,
     });
   }
 
@@ -199,11 +189,7 @@ export class WorkBuddyClient {
     try {
       while (!done) {
         signal.throwIfAborted();
-        const { done: streamDone, value } = await withTimeout(
-          reader.read(),
-          this.idleTimeoutMs,
-          'idle timeout waiting for upstream SSE frame',
-        );
+        const { done: streamDone, value } = await reader.read();
         if (streamDone) break;
         for (const frame of parser.push(decoder.decode(value, { stream: true }))) {
           if (frame.kind === 'done') {
@@ -266,22 +252,6 @@ function normalizeChunk(raw: unknown): UpstreamChunk {
         }
       : null,
   };
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(label)), ms);
-    p.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(t);
-        reject(e);
-      },
-    );
-  });
 }
 
 function safeJson(text: string): Record<string, any> | null {

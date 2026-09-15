@@ -49,8 +49,6 @@ async function main() {
     upstreamUrl: config.upstreamUrl,
     credentials: pool,
     userAgent: config.upstreamUa,
-    firstByteTimeoutMs: config.firstByteTimeoutMs,
-    idleTimeoutMs: config.idleTimeoutMs,
   });
 
   const metrics = createMetrics();
