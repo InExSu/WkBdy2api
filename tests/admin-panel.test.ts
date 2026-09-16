@@ -33,7 +33,7 @@ async function panel(popupBlocked = false) {
   const input = w.document.querySelector('#key-input') as unknown as HTMLInputElement;
   input.value = 'test-only-admin-key';
   (w.document.querySelector('#key-submit') as unknown as HTMLButtonElement).click();
-  await vi.waitFor(() => expect(w.document.querySelector('#main h2')?.textContent).toBe('概览'));
+  await vi.waitFor(() => expect(w.document.querySelector('#main h2')?.textContent).toBe('Обзор'));
   (w.document.querySelector('[data-view="upstream"]') as unknown as HTMLButtonElement).click();
   return { w, fetchFn, popup };
 }
@@ -46,7 +46,7 @@ describe('embedded OAuth panel interactions', () => {
     note.value = 'keep my note'; note.focus();
     (w.document.querySelector('#oauth-start') as unknown as HTMLButtonElement).click();
     await vi.waitFor(() => expect(popup.location.replace).toHaveBeenCalledWith('https://www.workbuddy.ai/login?state=secret-in-memory'));
-    await vi.waitFor(() => expect(w.document.querySelector('#oauth-status')?.textContent).toContain('登录成功'), { timeout: 3000 });
+    await vi.waitFor(() => expect(w.document.querySelector('#oauth-status')?.textContent).toContain('Вход успешен'), { timeout: 3000 });
     await vi.waitFor(() => expect(w.document.querySelector('#acct-rows')?.textContent).toContain('#1'));
     expect(w.document.querySelector('#main .section')).toBe(section);
     expect(w.document.querySelector('#oauth-note')).toBe(note);
@@ -70,7 +70,21 @@ describe('embedded OAuth panel interactions', () => {
     (w.document.querySelector('#oauth-start') as unknown as HTMLButtonElement).click();
     await vi.waitFor(() => expect(w.document.querySelector('#oauth-link')?.hasAttribute('hidden')).toBe(false));
     expect(w.document.querySelector('#oauth-link')?.getAttribute('rel')).toBe('noopener noreferrer');
-    expect(w.document.querySelector('#oauth-status')?.textContent).toContain('下方链接');
+    expect(w.document.querySelector('#oauth-status')?.textContent).toContain('ссылку ниже');
+  });
+  it('defaults to Russian and switches RU/EN/ZH with persistence', async () => {
+    const { w } = await panel();
+    (w.document.querySelector('[data-view="overview"]') as unknown as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(w.document.querySelector('#toolbar-title')?.textContent).toBe('Обзор'));
+    expect(w.document.documentElement.lang).toBe('ru');
+    (w.document.querySelector('.lang-btn[data-lang="en"]') as unknown as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(w.document.querySelector('#toolbar-title')?.textContent).toBe('Overview'));
+    expect(w.document.documentElement.lang).toBe('en');
+    (w.document.querySelector('.lang-btn[data-lang="zh"]') as unknown as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(w.document.querySelector('#toolbar-title')?.textContent).toBe('概览'));
+    (w.document.querySelector('.lang-btn[data-lang="ru"]') as unknown as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(w.document.querySelector('#toolbar-title')?.textContent).toBe('Обзор'));
+    expect(w.localStorage.getItem('wkb2api-lang')).toBe('ru');
   });
 
 });
