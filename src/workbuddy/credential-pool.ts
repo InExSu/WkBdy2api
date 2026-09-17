@@ -225,6 +225,10 @@ export class CredentialPool {
     return state.refresh;
   }
 
+  accountLabel(credential: WorkBuddyCredential): string | undefined {
+    return this.states.find((s) => s.account.credential.userId === credential.userId && s.account.credential.domain === credential.domain)?.account.label;
+  }
+
   invalidate(): void {}
   describe(): string {
     return `account pool (${this.states.length} accounts)`;

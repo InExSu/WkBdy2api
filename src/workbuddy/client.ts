@@ -1,6 +1,18 @@
 import { SseParser } from './stream-parser.js';
 import type { UpstreamChatRequest } from './request-mapper.js';
 import type { WorkBuddyCredential } from './auth.js';
+import { fetchUpstream } from './transport.js';
+
+export type UpstreamDiagnostic = {
+  phase: 'headers' | 'end';
+  result: 'ok' | 'http_error' | 'channel_rejected' | 'transport_error' | 'protocol_error' | 'client_cancelled';
+  account: string;
+  credential_source: 'oauth' | 'imported';
+  model: string;
+  duration_ms: number;
+  status?: number;
+  upstream_code?: string;
+};
 
 /** One normalized upstream chunk event, post-SSE parsing. */
 export type UpstreamChunk = {
@@ -35,6 +47,7 @@ export type ClientOptions = {
   credentials: CredentialLike;
   userAgent: string;
   fetchFn?: typeof fetch;
+  onDiagnostic?: (event: UpstreamDiagnostic) => void;
 };
 
 /**
@@ -47,6 +60,7 @@ export type CredentialLike = {
   invalidate(): void;
   describe(): string;
   reportFailure?(token: string): void;
+  accountLabel?(credential: WorkBuddyCredential): string | undefined;
   refreshRejectedCredential?(credential: WorkBuddyCredential): Promise<WorkBuddyCredential>;
 };
 
@@ -70,51 +84,76 @@ export class UpstreamProtocolError extends Error {
   }
 }
 
-  /** Thin transport over the WorkBuddy chat endpoint. Client disconnects still cancel the upstream stream. */
-  export class WorkBuddyClient {
+export const CHANNEL_REJECTED_MESSAGE = 'WorkBuddy rejected this account or integration channel. Check account authorization with WorkBuddy; the gateway will not retry through another account.';
+export function isChannelRejected(error: unknown): error is UpstreamHttpError {
+  return error instanceof UpstreamHttpError && /unapproved channel/i.test(error.upstreamMessage);
+}
+
+export class WorkBuddyClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(private readonly opts: ClientOptions) {
-    this.fetchFn = opts.fetchFn ?? fetch;
+    this.fetchFn = opts.fetchFn ?? fetchUpstream;
   }
 
-  /**
-   * Open the upstream stream. Always sends stream:true (upstream rejects
-   * non-stream). On 401/403 the failing account is reported (pool quarantines
-   * it), the credential is re-picked — which for a pool means the NEXT
-   * account — and the request retried once; a second failure surfaces.
-   */
   async streamChatCompletion(
     body: UpstreamChatRequest,
     signal: AbortSignal,
     allowAuthRetry = true,
     requireDone = false,
   ): Promise<StreamResult> {
+    const began = performance.now();
     let credential = await this.opts.credentials.getCredential();
-    let res = await this.attempt(body, signal, credential);
-    if (res.status === 401 && allowAuthRetry) {
-      await res.body?.cancel().catch(() => {});
-      if (this.opts.credentials.refreshRejectedCredential) {
-        try { credential = await this.opts.credentials.refreshRejectedCredential(credential); }
-        catch { throw new UpstreamHttpError(401, undefined, 'Account needs a new web login.'); }
-      } else {
-        this.opts.credentials.invalidate();
-        credential = await this.opts.credentials.getCredential();
+    const report = (phase: UpstreamDiagnostic['phase'], result: UpstreamDiagnostic['result'], status?: number, code?: string) => {
+      this.opts.onDiagnostic?.({ phase, result, status,
+        ...(code && /^\d{1,10}$/.test(code) ? { upstream_code: code } : {}),
+        account: this.opts.credentials.accountLabel?.(credential) ?? 'unlabelled',
+        credential_source: credential.oauthOrigin ? 'oauth' : 'imported',
+        model: body.model, duration_ms: Math.round(performance.now() - began),
+      });
+    };
+    try {
+      let res = await this.attempt(body, signal, credential);
+      if (res.status === 401 && allowAuthRetry) {
+        await res.body?.cancel().catch(() => {});
+        if (this.opts.credentials.refreshRejectedCredential) {
+          try { credential = await this.opts.credentials.refreshRejectedCredential(credential); }
+          catch { throw new UpstreamHttpError(401, undefined, 'Account needs a new web login.'); }
+        } else {
+          this.opts.credentials.invalidate();
+          credential = await this.opts.credentials.getCredential();
+        }
+        res = await this.attempt(body, signal, credential);
       }
-      res = await this.attempt(body, signal, credential);
+      if (res.status === 401 || res.status === 403) this.opts.credentials.reportFailure?.(credential.accessToken);
+      if (res.status !== 200 || !res.body) {
+        const text = await res.text().catch(() => '');
+        const parsed = safeJson(text);
+        throw new UpstreamHttpError(res.status, parsed?.code !== undefined ? String(parsed.code) : undefined,
+          typeof parsed?.msg === 'string' ? parsed.msg : text.slice(0, 500), res.headers.get('retry-after') ?? undefined);
+      }
+      report('headers', 'ok', res.status);
+      const parsedStream = this.parseStream(res.body, signal, requireDone);
+      return (async function* () {
+        let completed = false;
+        try {
+          yield* parsedStream;
+          completed = true;
+          report('end', 'ok', 200);
+        } catch (error) {
+          report('end', signal.aborted ? 'client_cancelled' : isChannelRejected(error) ? 'channel_rejected' : error instanceof UpstreamProtocolError ? 'protocol_error' : 'transport_error',
+            error instanceof UpstreamHttpError ? error.status : undefined, error instanceof UpstreamHttpError ? error.code : undefined);
+          throw error;
+        } finally {
+          if (!completed) await parsedStream.return(undefined).catch(() => {});
+        }
+      })();
+    } catch (error) {
+      report('end', signal.aborted ? 'client_cancelled' : isChannelRejected(error) ? 'channel_rejected'
+        : error instanceof UpstreamHttpError ? 'http_error' : 'transport_error',
+      error instanceof UpstreamHttpError ? error.status : undefined, error instanceof UpstreamHttpError ? error.code : undefined);
+      throw error;
     }
-    if (res.status === 401 || res.status === 403) this.opts.credentials.reportFailure?.(credential.accessToken);
-    if (res.status !== 200 || !res.body) {
-      const text = await res.text().catch(() => '');
-      const parsed = safeJson(text);
-      throw new UpstreamHttpError(
-        res.status,
-        parsed?.code !== undefined ? String(parsed.code) : undefined,
-        typeof parsed?.msg === 'string' ? parsed.msg : text.slice(0, 500),
-        res.headers.get('retry-after') ?? undefined,
-      );
-    }
-    return this.parseStream(res.body, signal, requireDone);
   }
 
   /**
@@ -201,6 +240,8 @@ export class UpstreamProtocolError extends Error {
           if (chunk === null) {
             throw new UpstreamProtocolError(`upstream sent a non-JSON SSE frame: ${frame.json.slice(0, 200)}`);
           }
+          const message = typeof chunk.msg === 'string' ? chunk.msg : typeof chunk.error?.message === 'string' ? chunk.error.message : '';
+          if (/unapproved channel/i.test(message)) throw new UpstreamHttpError(400, String(chunk.code ?? ''), message);
           yield normalizeChunk(chunk);
         }
       }
@@ -214,6 +255,8 @@ export class UpstreamProtocolError extends Error {
           if (frame.kind === 'comment') continue;
           const chunk = safeJson(frame.json);
           if (chunk === null) throw new UpstreamProtocolError('upstream sent a non-JSON trailing frame');
+          const message = typeof chunk.msg === 'string' ? chunk.msg : typeof chunk.error?.message === 'string' ? chunk.error.message : '';
+          if (/unapproved channel/i.test(message)) throw new UpstreamHttpError(400, String(chunk.code ?? ''), message);
           yield normalizeChunk(chunk);
         }
       }

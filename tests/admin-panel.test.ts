@@ -11,15 +11,22 @@ const overview = {
   stats: { uptime_ms: 0, total_requests: 0, total_errors: 0, error_rate: 0, p95_ms: null, per_model: [], tokens: { prompt: 0, completion: 0 } },
 };
 
-async function panel(popupBlocked = false) {
-  const w = new Window({ url: 'http://127.0.0.1:8787/admin' });
+async function panel(popupBlocked = false, context: { saved: Record<string, number>; fail?: boolean; delay?: Promise<void> } = { saved: { 'deepseek-v4.1-flash': 300000 } }) {
+  const w = new Window({ url: 'http://127.0.0.1:7891/admin' });
   windows.push(w);
   let completed = false;
   const fetchFn = vi.fn(async (path: string, init?: RequestInit) => {
     let body: unknown;
     if (path.endsWith('/oauth/start')) body = { id: 'test-transaction', authorization_url: 'https://www.workbuddy.ai/login?state=secret-in-memory', status: 'pending' };
     else if (path.endsWith('/status')) { completed = true; body = { id: 'test-transaction', status: 'completed', account_label: '#1' }; }
-    else if (path.endsWith('/overview')) body = { ...overview, pool: completed ? { size: 1, strategy: 'round-robin', accounts: [{ label: '#1', note: 'Account', ok: true, detail: '网页登录' }] } : overview.pool };
+    else if (path.endsWith('/context-window')) {
+      if (context.delay) await context.delay;
+      if (context.fail) return { ok: false, status: 500, json: async () => ({ error: { message: 'Disk unavailable' } }) } as Response;
+      const change = JSON.parse(String(init?.body));
+      context.saved[change.model_id] = change.context_window;
+      body = { ok: true, ...change };
+    }
+    else if (path.endsWith('/overview')) body = { ...overview, pool: { ...overview.pool, context_window: { ...context.saved }, ...(completed ? { size: 1, accounts: [{ label: '#1', note: 'Account', ok: true, detail: '网页登录' }] } : {}) } };
     else throw new Error('unexpected local request');
     return { ok: true, status: 200, json: async () => body } as Response;
   });
@@ -65,6 +72,35 @@ describe('embedded OAuth panel interactions', () => {
     expect(selector.value).toBe('300000');
     expect(w.document.body.textContent).toContain('x0.00 Credits');
   });
+  it('saves a dotted model ID, survives navigation and reload without browser preferences', async () => {
+    const context = { saved: { 'deepseek-v4.1-flash': 300000 } as Record<string, number> };
+    const { w, fetchFn } = await panel(false, context);
+    (w.document.querySelector('[data-view="models"]') as unknown as HTMLButtonElement).click();
+    const select = w.document.querySelector('.context-select') as unknown as HTMLSelectElement;
+    select.value = '1000000';
+    select.dispatchEvent(new w.Event('change'));
+    await vi.waitFor(() => expect(w.document.getElementById('context-save-state-deepseek-v4.1-flash')?.textContent).toContain('已保存'));
+    expect(fetchFn.mock.calls.find(([path]) => path.endsWith('/context-window'))?.[1]?.body).toBe(JSON.stringify({ model_id: 'deepseek-v4.1-flash', context_window: 1000000 }));
+    for (const view of ['overview', 'models']) (w.document.querySelector('[data-view="' + view + '"]') as unknown as HTMLButtonElement).click();
+    expect((w.document.querySelector('.context-select') as unknown as HTMLSelectElement).value).toBe('1000000');
+    const reloaded = (await panel(false, context)).w;
+    (reloaded.document.querySelector('[data-view="models"]') as unknown as HTMLButtonElement).click();
+    expect((reloaded.document.querySelector('.context-select') as unknown as HTMLSelectElement).value).toBe('1000000');
+    expect(w.localStorage.getItem('wkb2api-model-context')).toBeNull();
+  });
+
+  it('rolls back failed saves and preserves the server value', async () => {
+    const context = { saved: { 'deepseek-v4.1-flash': 300000 } as Record<string, number>, fail: true };
+    const { w } = await panel(false, context);
+    (w.document.querySelector('[data-view="models"]') as unknown as HTMLButtonElement).click();
+    const select = w.document.querySelector('.context-select') as unknown as HTMLSelectElement;
+    select.value = '1000000'; select.dispatchEvent(new w.Event('change'));
+    await vi.waitFor(() => expect(select.disabled).toBe(false));
+    expect(select.value).toBe('300000');
+    expect(w.document.getElementById('context-save-state-deepseek-v4.1-flash')?.textContent).toContain('保存失败');
+    expect(context.saved).toEqual({ 'deepseek-v4.1-flash': 300000 });
+  });
+
   it('offers a safe explicit link if the browser blocks the new tab', async () => {
     const { w } = await panel(true);
     (w.document.querySelector('#oauth-start') as unknown as HTMLButtonElement).click();

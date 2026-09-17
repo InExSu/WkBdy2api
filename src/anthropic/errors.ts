@@ -1,5 +1,5 @@
 import { CredentialError } from '../workbuddy/auth.js';
-import { UpstreamHttpError, UpstreamProtocolError } from '../workbuddy/client.js';
+import { UpstreamHttpError, UpstreamProtocolError, isChannelRejected, CHANNEL_REJECTED_MESSAGE } from '../workbuddy/client.js';
 
 export function anthropicError(status: number, message: string, requestId: string) {
   const type = status === 400 || status === 413 ? 'invalid_request_error'
@@ -12,6 +12,7 @@ export function anthropicError(status: number, message: string, requestId: strin
 }
 
 export function mapMessagesError(error: unknown): { status: number; message: string; retryAfter?: string } {
+  if (isChannelRejected(error)) return { status: 403, message: CHANNEL_REJECTED_MESSAGE };
   if (error instanceof UpstreamHttpError) {
     if (error.status === 401 || error.status === 403) return { status: 502, message: 'WorkBuddy account authentication failed. Sign in again from the gateway panel.' };
     if (error.status === 429) return { status: 429, message: 'WorkBuddy rate limit or quota exceeded.', retryAfter: error.retryAfter };

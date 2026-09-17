@@ -49,6 +49,10 @@ async function main() {
     upstreamUrl: config.upstreamUrl,
     credentials: pool,
     userAgent: config.upstreamUa,
+    onDiagnostic: (event) => {
+      if (event.result === 'ok') log.info('upstream', { ...event });
+      else log.warn('upstream', { ...event });
+    },
   });
 
   const metrics = createMetrics();

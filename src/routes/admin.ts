@@ -64,23 +64,12 @@ export function adminRoutes(app: FastifyInstance, opts: AdminOpts): void {
 
   app.get('/admin/api/overview', async () => {
     const stats = opts.metrics.snapshot();
-    // Credential probe: never surface values — only presence and expiry shape.
-    let credential: { source: string; ok: boolean; detail: string };
-    try {
-      const cred = await opts.pool.getCredential();
-      credential = {
-        source: opts.pool.describe(),
-        ok: true,
-        detail: describeToken(cred.accessToken),
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? (err.message.split('\n')[0] ?? 'unknown error') : 'unknown error';
-      credential = {
-        source: opts.pool.describe(),
-        ok: false,
-        detail: msg.slice(0, 200),
-      };
-    }
+    const accounts = opts.pool.list();
+    const credential = {
+      source: opts.pool.describe(),
+      ok: accounts.some((account) => account.ok),
+      detail: accounts.length ? '账号池状态；请求时检查令牌有效期。' : '账号池为空，请从面板登录。',
+    };
     return {
       version: opts.version,
       started_at: opts.startedAt,
@@ -190,7 +179,13 @@ export function adminRoutes(app: FastifyInstance, opts: AdminOpts): void {
       const err = openAiError(400, 'invalid_request', 'context_window must be a positive integer or null.');
       return reply.code(err.statusCode).send(err.body);
     }
-    await opts.pool.setContextWindow(parsed.data.model_id, parsed.data.context_window ?? undefined);
+    const model = opts.models.find((entry) => entry.id === parsed.data.model_id);
+    if (!model) return reply.code(404).send(openAiError(404, 'model_not_found', 'Model not found.').body);
+    const lengths = model.x_workbuddy.context_window?.supportedLengths ?? [];
+    if (parsed.data.context_window !== null && !lengths.includes(parsed.data.context_window)) {
+      return reply.code(400).send(openAiError(400, 'invalid_request', 'Choose a context window supported by this model.', 'context_window').body);
+    }
+    await opts.pool.setContextWindow(model.id, parsed.data.context_window ?? undefined);
     return reply.code(200).send({ ok: true, model_id: parsed.data.model_id, context_window: opts.pool.getContextWindow(parsed.data.model_id) ?? null });
   });
 

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { prepareSse } from './sse-keepalive.js';
 import { responsesRequestSchema, ResponsesInputError, toWorkBuddyResponseRequest, type ResponsesRequest } from '../openai/responses-request-mapper.js';
 import { normalizeOpenAiRequestBody } from '../workbuddy/request-mapper.js';
 import { ResponsesBuilder } from '../openai/responses-builder.js';
@@ -98,6 +99,7 @@ export function responsesRoutes(app: FastifyInstance, opts: ResponsesOptions): v
       if (!reply.raw.writableEnded) abort.abort();
     };
     reply.raw.on('close', onClose);
+    const sse = request.stream ? prepareSse(reply) : undefined;
 
     try {
       const stream = await opts.client.streamChatCompletion(upstream, abort.signal, true, true);
@@ -110,17 +112,7 @@ export function responsesRoutes(app: FastifyInstance, opts: ResponsesOptions): v
         return response;
       }
 
-      const first = await stream.next();
-      if (first.done) throw new Error('Upstream returned no response content.');
-
-      reply.hijack();
-      reply.raw.writeHead(200, {
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-        'X-Accel-Buffering': 'no',
-      });
-
+      sse!.start();
       let sequence = 0;
       const writeEvent = (type: string, event: Record<string, unknown>) => {
         const payload = { type, sequence_number: sequence++, ...event };
@@ -172,7 +164,6 @@ export function responsesRoutes(app: FastifyInstance, opts: ResponsesOptions): v
         }
       };
 
-      emitChunk(first.value);
       for await (const chunk of stream) emitChunk(chunk);
       const response = builder.build(responseOptions(request));
 
@@ -201,6 +192,7 @@ export function responsesRoutes(app: FastifyInstance, opts: ResponsesOptions): v
         reply.raw.end();
       }
     } finally {
+      sse?.stop();
       abort.abort();
       reply.raw.removeListener('close', onClose);
     }

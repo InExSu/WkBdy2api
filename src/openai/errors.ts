@@ -8,6 +8,7 @@ export type ApiErrorCode =
   | 'insufficient_quota'
   | 'rate_limit_exceeded'
   | 'upstream_authentication_error'
+  | 'upstream_channel_rejected'
   | 'upstream_timeout'
   | 'upstream_error'
   | 'upstream_protocol_error'
@@ -22,6 +23,7 @@ const TYPE_BY_CODE: Record<ApiErrorCode, string> = {
   insufficient_quota: 'insufficient_quota',
   rate_limit_exceeded: 'rate_limit_error',
   upstream_authentication_error: 'upstream_authentication_error',
+  upstream_channel_rejected: 'permission_error',
   upstream_timeout: 'timeout_error',
   upstream_error: 'upstream_error',
   upstream_protocol_error: 'upstream_protocol_error',
@@ -37,6 +39,7 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   insufficient_quota: 429,
   rate_limit_exceeded: 429,
   upstream_authentication_error: 502,
+  upstream_channel_rejected: 403,
   upstream_timeout: 504,
   upstream_error: 502,
   upstream_protocol_error: 502,

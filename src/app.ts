@@ -32,6 +32,8 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   const app = Fastify({
     logger: false,
     bodyLimit: 8 * 1024 * 1024,
+    connectionTimeout: 0,
+    requestTimeout: 0,
   });
 
   // Downstream auth guard for every /v1 route.
