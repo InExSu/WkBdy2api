@@ -509,6 +509,7 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
     oauthMessage: '',
     oauthUrl: '',
     overviewPending: false,
+    importBusy: false,
     lang: 'en',
   };
 
@@ -578,9 +579,9 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       '冷却中': 'Остывает',
       '不可用': 'Недоступен',
       '移除': 'Удалить',
-      '账号池为空 — 使用本机凭据文件的单账号': 'Пул пуст — используется одиночный локальный аккаунт',
+      '账号池为空 — 使用本机凭据文件的单账号': 'Пул пуст — добавьте аккаунт ниже',
       '账号池': 'Пул аккаунтов',
-      '账号池内的凭据按请求轮流使用；池为空时回落到本机凭据文件。凭据值永不显示、不落盘。': 'Учётные данные пула используются по очереди; когда пул пуст — используется локальный файл. Значения никогда не показываются и не сохраняются.',
+      '账号池内的凭据按请求轮流使用；池为空时回落到本机凭据文件。凭据值永不显示、不落盘。': 'Учётные данные пула используются по очереди. Если пул пуст, запросы завершаются ошибкой — добавьте аккаунт ниже. Значения никогда не показываются и не сохраняются.',
       '账号池状态': 'Статус пула',
       ' 个账号 · ': ' ак. · ',
       '调度 · 401 的账号自动冷却后重试': ' · аккаунты с 401 остывают и повторяются',
@@ -602,7 +603,17 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       '账号池为空，请登录 WorkBuddy': 'Пул пуст, войдите в WorkBuddy',
       '上游端点': 'Апстрим',
       '立即刷新': 'Обновить сейчас',
-      '账号池为空，点击下方按钮登录账号。': 'Пул пуст, войдите через кнопку ниже.',
+      '账号池为空，点击下方按钮登录账号。': 'Пул пуст — войдите или импортируйте аккаунт ниже.',
+      '从文件导入': 'Импорт из файла',
+      '从本机 WorkBuddy 凭据文件导入账号。': 'Импорт аккаунтов из локального файла учётных данных WorkBuddy.',
+      '正在导入…': 'Импортирую…',
+      '已导入 ': 'Импортировано ',
+      ' 个账号。': ' аккаунтов.',
+      '未找到可导入的账号。': 'Импортировать нечего.',
+      '未找到凭据文件：': 'Файл учётных данных не найден: ',
+      '无法读取凭据文件：': 'Не удалось прочитать файл учётных данных: ',
+      '凭据文件格式不支持：': 'Неподдерживаемый формат файла: ',
+      'Local file · UID': 'Локальный файл · UID',
       '等待恢复': 'Ожидает',
       '正在准备登录…': 'Готовлю вход…',
       '登录成功，': 'Вход успешен, ',
@@ -684,9 +695,9 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       '冷却中': 'Cooling down',
       '不可用': 'Unavailable',
       '移除': 'Remove',
-      '账号池为空 — 使用本机凭据文件的单账号': 'Pool empty — single local account in use',
+      '账号池为空 — 使用本机凭据文件的单账号': 'Pool empty — add an account below',
       '账号池': 'Account pool',
-      '账号池内的凭据按请求轮流使用；池为空时回落到本机凭据文件。凭据值永不显示、不落盘。': 'Pool credentials are used in rotation; when empty, falls back to the local credential file. Values are never shown or stored.',
+      '账号池内的凭据按请求轮流使用；池为空时回落到本机凭据文件。凭据值永不显示、不落盘。': 'Pool credentials are used in rotation. If the pool is empty, requests fail with an error — add an account below. Values are never shown or stored.',
       '账号池状态': 'Pool status',
       ' 个账号 · ': ' accounts · ',
       '调度 · 401 的账号自动冷却后重试': ' · 401 accounts cool down and retry',
@@ -708,7 +719,16 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       '账号池为空，请登录 WorkBuddy': 'Pool is empty, sign in with WorkBuddy',
       '上游端点': 'Upstream endpoint',
       '立即刷新': 'Refresh now',
-      '账号池为空，点击下方按钮登录账号。': 'Pool is empty, sign in with the button below.',
+      '账号池为空，点击下方按钮登录账号。': 'Pool is empty — sign in or import an account below.',
+      '从文件导入': 'Import from file',
+      '从本机 WorkBuddy 凭据文件导入账号。': 'Import accounts from the local WorkBuddy credential file.',
+      '正在导入…': 'Importing…',
+      '已导入 ': 'Imported ',
+      ' 个账号。': ' accounts.',
+      '未找到可导入的账号。': 'Nothing to import.',
+      '未找到凭据文件：': 'Credential file not found: ',
+      '无法读取凭据文件：': 'Cannot read the credential file: ',
+      '凭据文件格式不支持：': 'Unsupported credential file format: ',
       '等待恢复': 'Pending recovery',
       '正在准备登录…': 'Preparing sign-in…',
       '登录成功，': 'Signed in, ',
@@ -809,6 +829,7 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
         if (!res.ok) {
           var error = new Error(body.error && body.error.message || (tr('请求失败（HTTP ') + res.status + tr('）')));
           error.code = body.error && body.error.code;
+          error.path = body.error && body.error.param;
           throw error;
         }
         return body;
@@ -996,6 +1017,7 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
     else if (state.view === 'upstream') {
       main.innerHTML = localize(viewUpstream(d));
       wireLoginForm();
+      wireImport();
       updateOAuthView();
     }
   }
@@ -1126,7 +1148,10 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       '<p class="form-hint" id="oauth-status" role="status" aria-live="polite">登录结果会自动显示，无需刷新。</p>' +
       '<a id="oauth-link" class="form-hint" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>打开官方登录页面</a>' +
       '<p class="form-hint">账号会加密保存；重启网关后自动恢复，无需重新登录。</p>' +
-      '</div></div>' +
+      '</div>' +
+      '<div class="controls" style="margin-top:12px"><button class="btn secondary" id="local-import">从文件导入</button></div>' +
+      '<p class="form-hint" id="local-import-status" role="status" aria-live="polite">从本机 WorkBuddy 凭据文件导入账号。</p>' +
+      '</div>' +
       '<div class="card"><div class="card-header"><h3 class="card-title">账号池状态</h3><span class="pill ' + (c.ok ? 'ok' : 'error') + '">' + (c.ok ? '可用' : '不可用') + '</span></div>' +
       '<div class="rows">' +
       '<div class="row"><div class="row-main"><div class="row-title">来源</div></div><div class="row-value">' + escapeHtml(c.source) + '</div></div>' +
@@ -1213,6 +1238,39 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       state.oauthUrl = '';
       state.oauthMessage = error.message;
       updateOAuthView();
+    });
+  }
+
+  function setImportStatus(text) {
+    var el = $('#local-import-status');
+    if (el) el.textContent = text;
+  }
+
+  function importErrorText(error) {
+    var path = error.path || '';
+    if (error.code === 'local_import_file_not_found') return tr('未找到凭据文件：') + path;
+    if (error.code === 'local_import_read_error') return tr('无法读取凭据文件：') + path;
+    if (error.code === 'local_import_format_error') return tr('凭据文件格式不支持：') + path;
+    return error.message;
+  }
+
+  function wireImport() {
+    var btn = $('#local-import');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      if (state.importBusy) return;
+      state.importBusy = true;
+      btn.disabled = true;
+      setImportStatus(tr('正在导入…'));
+      api('accounts/import-local', { method: 'POST' }).then(function (result) {
+        setImportStatus(result.imported > 0 ? tr('已导入 ') + result.imported + tr(' 个账号。') : tr('未找到可导入的账号。'));
+        return refreshOverview();
+      }).catch(function (error) {
+        setImportStatus(importErrorText(error));
+      }).finally(function () {
+        state.importBusy = false;
+        btn.disabled = false;
+      });
     });
   }
 
