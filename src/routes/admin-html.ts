@@ -902,7 +902,9 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
     } catch (e) {}
   }
   function setContextForModel(model, value) {
-    var stateText = $('#context-save-state-' + model);
+    // getElementById, not a '#' query: model ids can contain dots ("deepseek-v4.1-flash"),
+    // which a CSS selector would parse as a class and throw on.
+    var stateText = document.getElementById('context-save-state-' + model);
     if (stateText) stateText.textContent = tr('保存中…');
     fetch('/admin/api/context-window', {
       method: 'POST',
@@ -914,6 +916,13 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       return res.json();
     }).then(function () {
       if (stateText) stateText.textContent = tr('已保存');
+      // Keep the cached overview in sync, otherwise re-rendering the models view
+      // shows the previous value until the next poll (5 s) refreshes it.
+      if (state.overview && state.overview.pool) {
+        var merged = Object.assign({}, state.overview.pool.context_window || {});
+        merged[model] = value;
+        state.overview.pool.context_window = merged;
+      }
     }).catch(function () { if (stateText) stateText.textContent = tr('保存失败'); });
   }
 
