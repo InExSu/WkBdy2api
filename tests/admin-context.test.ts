@@ -78,7 +78,7 @@ describe('per-model context selection', () => {
     const { w, saved } = await openModelsView();
     pick(w, 'deepseek-v4.1-flash', '1000000');
     await vi.waitFor(() => expect(saved['deepseek-v4.1-flash']).toBe(1000000));
-    await vi.waitFor(() => expect(w.document.getElementById('context-save-state-deepseek-v4.1-flash')?.textContent).toBe('Saved'));
+    await vi.waitFor(() => expect(w.document.getElementById('context-save-state-deepseek-v4.1-flash')?.textContent).toBe('Saved · applies to all accounts'));
   });
 
   it('saves the choice for a model id without a dot', async () => {
@@ -90,7 +90,7 @@ describe('per-model context selection', () => {
   it('keeps the saved choice after the view is rebuilt', async () => {
     const { w } = await openModelsView();
     pick(w, 'deepseek-v4.1-flash', '1000000');
-    await vi.waitFor(() => expect(w.document.getElementById('context-save-state-deepseek-v4.1-flash')?.textContent).toBe('Saved'));
+    await vi.waitFor(() => expect(w.document.getElementById('context-save-state-deepseek-v4.1-flash')?.textContent).toBe('Saved · applies to all accounts'));
     (w.document.querySelector('[data-view="overview"]') as unknown as HTMLButtonElement).click();
     (w.document.querySelector('[data-view="models"]') as unknown as HTMLButtonElement).click();
     await vi.waitFor(() => expect(w.document.querySelector('.context-select')).not.toBeNull());

@@ -1,4 +1,5 @@
 import { once } from 'node:events';
+import { prepareSse } from './sse-keepalive.js';
 import type { FastifyInstance } from 'fastify';
 import { messagesSchema, MessagesInputError, normalizeAnthropicRequestBody, toWorkBuddyMessageRequest } from '../anthropic/request-mapper.js';
 import { MessagesResponseBuilder } from '../anthropic/response-builder.js';
@@ -77,7 +78,7 @@ export function messagesRoutes(app: FastifyInstance, opts: MessagesOptions): voi
     const onClose = () => { if (!reply.raw.writableEnded) abort.abort(); };
     reply.raw.on('close', onClose);
     let stream: StreamResult | undefined;
-    let committed = false;
+    const sse = streaming ? prepareSse(reply, { 'request-id': req.id, 'x-wkbdy-upstream-model': entry.id }) : undefined;
     const writeEvent = async (event: { type: string }) => {
       abort.signal.throwIfAborted();
       if (!reply.raw.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)) {
@@ -93,17 +94,10 @@ export function messagesRoutes(app: FastifyInstance, opts: MessagesOptions): voi
         record(200);
         return message;
       }
-      // Await an actual upstream frame before committing a successful SSE status.
+      sse!.start();
       const first = await stream.next();
       if (first.done) throw new UpstreamProtocolError('Upstream returned no content.');
-      const initial = builder.push(first.value);
-      reply.hijack();
-      reply.raw.writeHead(200, {
-        'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache',
-        'X-Accel-Buffering': 'no', 'request-id': req.id, 'x-wkbdy-upstream-model': entry.id,
-      });
-      committed = true;
-      for (const event of initial) await writeEvent(event);
+      for (const event of builder.push(first.value)) await writeEvent(event);
       for await (const chunk of stream) for (const event of builder.push(chunk)) await writeEvent(event);
       for (const event of builder.finish()) await writeEvent(event);
       record(200);
@@ -112,7 +106,7 @@ export function messagesRoutes(app: FastifyInstance, opts: MessagesOptions): voi
       const failure = mapMessagesError(err);
       record(abort.signal.aborted ? 499 : failure.status);
       if (!reply.raw.destroyed && !abort.signal.aborted) {
-        if (committed) {
+        if (reply.raw.headersSent) {
           await writeEvent(anthropicError(failure.status, failure.message, req.id)).catch(() => {});
           reply.raw.end();
         } else {
@@ -121,6 +115,7 @@ export function messagesRoutes(app: FastifyInstance, opts: MessagesOptions): voi
         }
       }
     } finally {
+      sse?.stop();
       abort.abort();
       await stream?.return(undefined).catch(() => {});
       reply.raw.removeListener('close', onClose);

@@ -496,7 +496,8 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
   'use strict';
 
   var KEY_STORAGE = 'wkb2api-admin-key';
-  var CONTEXT_STORAGE = 'wkb2api-model-context';
+  var contextPending = new Set();
+  var contextRevision = 0;
   var state = {
     key: null,
     overview: null,
@@ -531,6 +532,9 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       '保存中…': 'Сохранение…',
       '保存失败': 'Не сохранено',
       '已保存': 'Сохранено',
+      '已保存 · 所有账号生效': 'Сохранено · применяется ко всем аккаунтам',
+      '保存失败：': 'Не сохранено: ',
+      '服务端未确认所选档位': 'Сервер не подтвердил выбранный размер контекста',
       ' 小时 ': ' ч ',
       ' 分': ' мин',
       ' 秒': ' с',
@@ -647,6 +651,9 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       '保存中…': 'Saving…',
       '保存失败': 'Save failed',
       '已保存': 'Saved',
+      '已保存 · 所有账号生效': 'Saved · applies to all accounts',
+      '保存失败：': 'Save failed: ',
+      '服务端未确认所选档位': 'Server did not confirm the selected context tier',
       ' 小时 ': ' h ',
       ' 分': ' min',
       ' 秒': ' s',
@@ -840,7 +847,11 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
   function refreshOverview() {
     if (state.overviewPending) return Promise.resolve();
     state.overviewPending = true;
+    var revision = contextRevision;
     return api('overview').then(function (d) {
+      if (state.overview && (contextPending.size || revision !== contextRevision)) {
+        d.pool.context_window = state.overview.pool.context_window;
+      }
       state.overview = d;
       if (!$('#main')) return;
       if (!$('#main').firstElementChild) renderMain();
@@ -891,49 +902,56 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
   function fmtContextLength(n) {
     return n >= 1000000 ? (n / 1000000).toFixed(n % 1000000 ? 1 : 0) + 'M' : Math.round(n / 1000) + 'K';
   }
-  function getContextPreferences() {
-    try { return JSON.parse(localStorage.getItem(CONTEXT_STORAGE) || '{}'); } catch (e) { return {}; }
-  }
-  function saveContextPreference(model, value) {
-    try {
-      var prefs = getContextPreferences();
-      prefs[model] = value;
-      localStorage.setItem(CONTEXT_STORAGE, JSON.stringify(prefs));
-    } catch (e) {}
-  }
-  function setContextForModel(model, value) {
-    // getElementById, not a '#' query: model ids can contain dots ("deepseek-v4.1-flash"),
-    // which a CSS selector would parse as a class and throw on.
+  function setContextForModel(select) {
+    var model = select.getAttribute('data-context-model');
+    if (contextPending.has(model)) return;
+    var value = Number(select.value);
+    var previous = select.dataset.savedValue;
     var stateText = document.getElementById('context-save-state-' + model);
+    contextPending.add(model);
+    contextRevision++;
+    select.disabled = true;
     if (stateText) stateText.textContent = tr('保存中…');
-    fetch('/admin/api/context-window', {
+    api('context-window', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.key },
-      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model_id: model, context_window: value }),
-    }).then(function (res) {
-      if (!res.ok) throw new Error(tr('保存失败'));
-      return res.json();
-    }).then(function () {
-      if (stateText) stateText.textContent = tr('已保存');
-      // Keep the cached overview in sync, otherwise re-rendering the models view
-      // shows the previous value until the next poll (5 s) refreshes it.
-      if (state.overview && state.overview.pool) {
-        var merged = Object.assign({}, state.overview.pool.context_window || {});
-        merged[model] = value;
-        state.overview.pool.context_window = merged;
+    }).then(function (result) {
+      if (!result.ok || result.model_id !== model || result.context_window !== value) throw new Error(tr('服务端未确认所选档位'));
+      if (state.overview) {
+        var settings = Object.assign({}, state.overview.pool.context_window || {});
+        settings[model] = result.context_window;
+        state.overview.pool.context_window = settings;
       }
-    }).catch(function () { if (stateText) stateText.textContent = tr('保存失败'); });
+      select.dataset.savedValue = String(result.context_window);
+      if (stateText) stateText.textContent = tr('已保存 · 所有账号生效');
+    }).catch(function (error) {
+      select.value = previous;
+      if (stateText) stateText.textContent = tr('保存失败：') + error.message;
+    }).finally(function () {
+      contextPending.delete(model);
+      contextRevision++;
+      if (state.view === 'models') {
+        document.querySelectorAll('.context-select').forEach(function (current) {
+          if (current.getAttribute('data-context-model') !== model) return;
+          current.disabled = false;
+          var settings = state.overview && state.overview.pool.context_window || {};
+          current.value = String(Object.prototype.hasOwnProperty.call(settings, model) ? settings[model] : previous);
+          current.dataset.savedValue = current.value;
+        });
+        var currentStatus = document.getElementById('context-save-state-' + model);
+        if (currentStatus && stateText) currentStatus.textContent = stateText.textContent;
+      }
+      select.disabled = false;
+    });
   }
 
   function wireContextSelectors() {
     document.querySelectorAll('.context-select').forEach(function (select) {
-      select.addEventListener('change', function () {
-        var model = select.getAttribute('data-context-model');
-        var value = Number(select.value);
-        saveContextPreference(model, value);
-        setContextForModel(model, value);
-      });
+      var model = select.getAttribute('data-context-model');
+      select.dataset.savedValue = select.value;
+      select.disabled = contextPending.has(model);
+      select.addEventListener('change', function () { setContextForModel(select); });
     });
   }
 
@@ -1081,7 +1099,7 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       var maxOut = x.max_output_tokens ? (x.max_output_tokens >= 1000 ? Math.round(x.max_output_tokens / 1000) + 'K' : x.max_output_tokens) : '—';
       var cw = x.context_window || {};
       var lengths = Array.isArray(cw.supportedLengths) ? cw.supportedLengths.filter(function (length) { return Number.isInteger(length) && length > 0; }).sort(function (a, b) { return a - b; }) : [];
-      var selectedContext = lengths.indexOf(d.pool && d.pool.context_window && d.pool.context_window[m.id]) >= 0 ? d.pool.context_window[m.id] : cw.defaultLength;
+      var selectedContext = lengths.indexOf(d.pool && d.pool.context_window && d.pool.context_window[m.id]) >= 0 ? d.pool.context_window[m.id] : lengths[lengths.length - 1];
       if (lengths.indexOf(selectedContext) < 0 && lengths.length) selectedContext = lengths[lengths.length - 1];
       var context = lengths.length > 1 ? '<div class="model-context"><span>支持 ' + lengths.map(fmtContextLength).join(' / ') + '</span><label class="context-picker">上下文<select class="context-select" data-context-model="' + escapeHtml(m.id) + '">' + lengths.map(function (length) { return '<option value="' + length + '"' + (length === selectedContext ? ' selected' : '') + '>' + fmtContextLength(length) + '</option>'; }).join('') + '</select><span class="save-state" id="context-save-state-' + escapeHtml(m.id) + '" aria-live="polite"></span></label></div>' : '';
       var credits = x.credits ? '<span class="price">' + escapeHtml(x.credits) + ' <small>Credits</small></span>' : '<span class="price muted">未提供价格</span>';

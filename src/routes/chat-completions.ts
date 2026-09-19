@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { chatRequestSchema, normalizeOpenAiRequestBody, toUpstreamRequest } from '../workbuddy/request-mapper.js';
-import { WorkBuddyClient, UpstreamHttpError, UpstreamProtocolError } from '../workbuddy/client.js';
+import { WorkBuddyClient, UpstreamHttpError, UpstreamProtocolError, isChannelRejected, CHANNEL_REJECTED_MESSAGE } from '../workbuddy/client.js';
+import { prepareSse } from './sse-keepalive.js';
 import { CompletionAggregator, toOpenAiChunk, localCompletionId } from '../openai/response-builder.js';
 import { openAiError, type ApiErrorCode } from '../openai/errors.js';
 import type { ExposedModel } from '../workbuddy/model-catalog.js';
@@ -125,28 +126,26 @@ export function chatCompletionsRoutes(app: FastifyInstance, opts: ChatOpts): voi
         });
         return built;
       } catch (err) {
-        record({ status: sendUpstreamError(reply, err).statusCode, error_code: mapUpstreamError(err).body.error.code });
-        return sendUpstreamError(reply, err);
+        const mapped = mapUpstreamError(err);
+        record({ status: mapped.statusCode, error_code: mapped.body.error.code });
+        return reply.code(mapped.statusCode).send(mapped.body);
+      } finally {
+        abort.abort();
       }
     }
 
     // ---- stream: convert and forward frame by frame ----------------------
     let meta: { id: string; created: number; model: string };
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    });
+    const sse = prepareSse(reply);
     let recordedStream = false;
     const recordStream = (status: number, usage?: { prompt_tokens?: number; completion_tokens?: number }, errorCode?: string) => {
       if (recordedStream) return;
       recordedStream = true;
       record({ status, prompt_tokens: usage?.prompt_tokens, completion_tokens: usage?.completion_tokens, error_code: errorCode });
     };
-    // status committed; upstream errors after this point go out as SSE error frames
     try {
-      const stream = await opts.client.streamChatCompletion(upstreamBody, abort.signal);
+      const stream = await opts.client.streamChatCompletion(upstreamBody, abort.signal, true, true);
+      sse!.start();
       meta = { id: localCompletionId(), created: Math.floor(Date.now() / 1000), model: request.model };
       const includeUsage = request.stream_options?.include_usage === true;
       let pendingUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
@@ -191,9 +190,15 @@ export function chatCompletionsRoutes(app: FastifyInstance, opts: ChatOpts): voi
       reply.raw.end();
     } catch (err) {
       const mapped = mapUpstreamError(err);
-      recordStream(mapped.statusCode, undefined, mapped.body.error.code);
-      reply.raw.write(`data: ${JSON.stringify({ error: mapped.body.error })}\n\n`);
-      reply.raw.end();
+      recordStream(abort.signal.aborted ? 499 : mapped.statusCode, undefined, mapped.body.error.code);
+      if (!reply.raw.headersSent) return reply.code(mapped.statusCode).send(mapped.body);
+      if (!reply.raw.destroyed && !abort.signal.aborted) {
+        reply.raw.write(`data: ${JSON.stringify({ error: mapped.body.error })}\n\n`);
+        reply.raw.end();
+      }
+    } finally {
+      sse.stop();
+      abort.abort();
     }
     return reply;
   });
@@ -205,6 +210,7 @@ function sendUpstreamError(reply: FastifyReply, err: unknown) {
 }
 
 export function mapUpstreamError(err: unknown): ReturnType<typeof openAiError> {
+  if (isChannelRejected(err)) return openAiError(403, 'upstream_channel_rejected', CHANNEL_REJECTED_MESSAGE);
   if (err instanceof UpstreamHttpError) {
     switch (err.status) {
       case 401:
