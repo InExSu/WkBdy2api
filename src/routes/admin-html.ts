@@ -9,7 +9,7 @@
 
 export function adminPanelHtml(): string {
   return `<!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -509,12 +509,12 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
     oauthMessage: '',
     oauthUrl: '',
     overviewPending: false,
-    lang: 'ru',
+    lang: 'en',
   };
 
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
 
-  // ---------- i18n (default RU; EN and ZH via switcher, persisted) ----------
+  // ---------- i18n (default EN; RU and ZH via switcher, persisted) ----------
   var LANG_STORAGE = 'wkb2api-lang';
   var I18N = {
     ru: {
@@ -583,7 +583,10 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       '账号池内的凭据按请求轮流使用；池为空时回落到本机凭据文件。凭据值永不显示、不落盘。': 'Учётные данные пула используются по очереди; когда пул пуст — используется локальный файл. Значения никогда не показываются и не сохраняются.',
       '账号池状态': 'Статус пула',
       ' 个账号 · ': ' ак. · ',
-      '调度 · 401 的账号自动冷却后重试': 'планировщик · аккаунты с 401 остывают и повторяются',
+      '调度 · 401 的账号自动冷却后重试': ' · аккаунты с 401 остывают и повторяются',
+      '网页登录 · 仅保存在服务内存中': 'Вход через сайт · только в памяти сервиса',
+      '需要重新网页登录': 'Требуется повторный вход',
+      '已导入凭据': 'Учётные данные импортированы',
       '添加账号': 'Добавить аккаунт',
       '官方网页登录': 'Вход через сайт',
       '点击后在 WorkBuddy 官方网页完成登录，网关会自动将账号加入池中。不需要安装桌面客户端，也不用复制 Token。密码和验证码只在官方页面输入。': 'Нажмите и войдите на официальном сайте WorkBuddy, шлюз сам добавит аккаунт в пул. Десктопный клиент не нужен, токен копировать не надо. Пароль и код — только на официальной странице.',
@@ -685,8 +688,11 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
       '账号池': 'Account pool',
       '账号池内的凭据按请求轮流使用；池为空时回落到本机凭据文件。凭据值永不显示、不落盘。': 'Pool credentials are used in rotation; when empty, falls back to the local credential file. Values are never shown or stored.',
       '账号池状态': 'Pool status',
-      ' 个账号 · ': ' accts · ',
-      '调度 · 401 的账号自动冷却后重试': 'scheduler · 401 accounts cool down and retry',
+      ' 个账号 · ': ' accounts · ',
+      '调度 · 401 的账号自动冷却后重试': ' · 401 accounts cool down and retry',
+      '网页登录 · 仅保存在服务内存中': 'Web sign-in · kept in service memory only',
+      '需要重新网页登录': 'Re-auth required',
+      '已导入凭据': 'Imported credentials',
       '添加账号': 'Add account',
       '官方网页登录': 'Official website login',
       '点击后在 WorkBuddy 官方网页完成登录，网关会自动将账号加入池中。不需要安装桌面客户端，也不用复制 Token。密码和验证码只在官方页面输入。': 'Click to sign in on the official WorkBuddy website; the gateway joins the account to the pool automatically. No desktop client, no token copy. Password and code only on the official page.',
@@ -727,13 +733,13 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
 
   function tr(s) {
     if (state.lang === 'zh') return s;
-    var d = I18N[state.lang] || I18N.ru;
+    var d = I18N[state.lang] || I18N.en;
     return d[s] !== undefined ? d[s] : s;
   }
 
   function localize(html) {
     if (!html || state.lang === 'zh') return html;
-    var d = I18N[state.lang] || I18N.ru;
+    var d = I18N[state.lang] || I18N.en;
     var keys = Object.keys(d).sort(function (a, b) { return b.length - a.length; });
     var out = html;
     for (var i = 0; i < keys.length; i++) {
@@ -754,7 +760,7 @@ h2 { font-size:30px; letter-spacing:-.04em; line-height:1.08; margin:4px 0 8px; 
   }
 
   function setLang(l) {
-    if (l !== 'ru' && l !== 'en' && l !== 'zh') l = 'ru';
+    if (l !== 'ru' && l !== 'en' && l !== 'zh') l = 'en';
     if (state.lang === l) return;
     state.lang = l;
     try { localStorage.setItem(LANG_STORAGE, l); } catch (e) {}
